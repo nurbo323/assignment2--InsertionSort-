@@ -17,7 +17,7 @@ package algorithms;
  * 3. Early termination for sorted sequences
  * 4. Efficient shifting instead of swapping
  *
- * @author Your Name
+ * @author Nurbol
  */
 public class InsertionSort {
 

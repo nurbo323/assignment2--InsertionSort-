@@ -1,4 +1,3 @@
-// src/main/java/cli/BenchmarkRunner.java
 package cli;
 
 import algorithms.InsertionSort;
@@ -6,7 +5,6 @@ import algorithms.SortMetrics;
 import metrics.PerformanceTracker;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -31,13 +29,25 @@ public class BenchmarkRunner {
 
         for (int size : TEST_SIZES) {
             System.out.printf("\n--- Testing with n = %d ---\n", size);
+            System.out.flush(); // Принудительный вывод
+
+            // Уменьшаем количество прогонов для больших размеров
+            int warmup = size >= 100000 ? 1 : WARMUP_RUNS;
+            int measurements = size >= 100000 ? 2 : MEASUREMENT_RUNS;
 
             // Test different data distributions
-            benchmarkDataType(tracker, "Random", size, DataType.RANDOM);
-            benchmarkDataType(tracker, "Sorted", size, DataType.SORTED);
-            benchmarkDataType(tracker, "Reverse", size, DataType.REVERSE);
-            benchmarkDataType(tracker, "NearlySorted", size, DataType.NEARLY_SORTED);
-            benchmarkDataType(tracker, "FewUnique", size, DataType.FEW_UNIQUE);
+            benchmarkDataType(tracker, "Random", size, DataType.RANDOM, warmup, measurements);
+            benchmarkDataType(tracker, "Sorted", size, DataType.SORTED, warmup, measurements);
+
+            // Пропускаем Reverse для 100000 (слишком долго - O(n²) worst case)
+            if (size < 100000) {
+                benchmarkDataType(tracker, "Reverse", size, DataType.REVERSE, warmup, measurements);
+            } else {
+                System.out.println("Reverse: SKIPPED (O(n²) worst case, would take too long)");
+            }
+
+            benchmarkDataType(tracker, "NearlySorted", size, DataType.NEARLY_SORTED, warmup, measurements);
+            benchmarkDataType(tracker, "FewUnique", size, DataType.FEW_UNIQUE, warmup, measurements);
         }
 
         tracker.printSummary();
@@ -51,73 +61,74 @@ public class BenchmarkRunner {
     }
 
     private void benchmarkDataType(PerformanceTracker tracker, String dataType,
-                                   int size, DataType type) {
+                                   int size, DataType type, int warmupRuns, int measurementRuns) {
+        System.out.printf("  %s: ", dataType);
+        System.out.flush();
+
         InsertionSort sorter = new InsertionSort();
 
         // Warmup
-        for (int i = 0; i < WARMUP_RUNS; i++) {
+        for (int i = 0; i < warmupRuns; i++) {
             int[] arr = generateData(type, size);
             sorter.adaptiveInsertionSort(arr);
+            System.out.print("w");
+            System.out.flush();
         }
+
+        System.out.print(" | ");
+        System.out.flush();
 
         // Measurement
         long totalComparisons = 0;
         long totalSwaps = 0;
         long totalShifts = 0;
+        long totalArrayAccesses = 0;
         long totalTime = 0;
 
-        for (int i = 0; i < MEASUREMENT_RUNS; i++) {
+        for (int i = 0; i < measurementRuns; i++) {
             int[] arr = generateData(type, size);
+
+            // Run sort
             sorter.adaptiveInsertionSort(arr);
 
             SortMetrics metrics = sorter.getMetrics();
             totalComparisons += metrics.getComparisons();
             totalSwaps += metrics.getSwaps();
             totalShifts += metrics.getShifts();
+            totalArrayAccesses += metrics.getArrayAccesses();
             totalTime += metrics.getExecutionTimeNanos();
 
             // Verify correctness
             if (!InsertionSort.isSorted(arr)) {
-                System.err.println("ERROR: Array not sorted!");
+                System.err.println("\nERROR: Array not sorted!");
+                return;
             }
+
+            System.out.print(".");
+            System.out.flush();
         }
 
-        // Average metrics
+        // Calculate averages
+        long avgComparisons = totalComparisons / measurementRuns;
+        long avgSwaps = totalSwaps / measurementRuns;
+        long avgShifts = totalShifts / measurementRuns;
+        long avgArrayAccesses = totalArrayAccesses / measurementRuns;
+        long avgTimeNanos = totalTime / measurementRuns;
+        double avgTimeMillis = avgTimeNanos / 1_000_000.0;
+
+        // Create metrics object with averaged values
         SortMetrics avgMetrics = new SortMetrics();
-        avgMetrics.startTimer();
-        long avgTime = totalTime / MEASUREMENT_RUNS;
-        avgMetrics.stopTimer();
+        // Manually set the values by calling increment methods
+        for (long i = 0; i < avgComparisons; i++) avgMetrics.incrementComparisons();
+        for (long i = 0; i < avgSwaps; i++) avgMetrics.incrementSwaps();
+        for (long i = 0; i < avgShifts; i++) avgMetrics.incrementShifts();
+        for (long i = 0; i < avgArrayAccesses; i++) avgMetrics.incrementArrayAccesses();
 
-        // Create averaged metrics for tracking
-        SortMetrics reportMetrics = createMetrics(
-                totalComparisons / MEASUREMENT_RUNS,
-                totalSwaps / MEASUREMENT_RUNS,
-                totalShifts / MEASUREMENT_RUNS,
-                avgTime
-        );
+        tracker.addResult(dataType, size, avgMetrics);
 
-        tracker.addResult(dataType, size, reportMetrics);
-
-        System.out.printf("%s: %.2f ms, %d comparisons, %d shifts\n",
-                dataType, reportMetrics.getExecutionTimeMillis(),
-                reportMetrics.getComparisons(), reportMetrics.getShifts());
-    }
-
-    private SortMetrics createMetrics(long comparisons, long swaps, long shifts, long timeNanos) {
-        SortMetrics metrics = new SortMetrics();
-        for (int i = 0; i < comparisons; i++) metrics.incrementComparisons();
-        for (int i = 0; i < swaps; i++) metrics.incrementSwaps();
-        for (int i = 0; i < shifts; i++) metrics.incrementShifts();
-
-        metrics.startTimer();
-        try {
-            Thread.sleep(0, (int)(timeNanos % 1_000_000));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        metrics.stopTimer();
-
-        return metrics;
+        System.out.printf(" ✓ %.2f ms, %d comparisons, %d shifts\n",
+                avgTimeMillis, avgComparisons, avgShifts);
+        System.out.flush();
     }
 
     private int[] generateData(DataType type, int size) {

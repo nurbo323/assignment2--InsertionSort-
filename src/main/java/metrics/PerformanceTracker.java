@@ -1,4 +1,3 @@
-// src/main/java/metrics/PerformanceTracker.java
 package metrics;
 
 import algorithms.SortMetrics;
@@ -24,18 +23,16 @@ public class PerformanceTracker {
 
     public void exportToCSV(String filename) throws IOException {
         try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
-            writer.println("DataType,InputSize,Comparisons,Swaps,Shifts,ArrayAccesses,TimeNanos,TimeMillis");
+            writer.println("DataType,InputSize,Comparisons,Swaps,Shifts,ArrayAccesses");
 
             for (BenchmarkResult result : results) {
-                writer.printf("%s,%d,%d,%d,%d,%d,%d,%.3f%n",
+                writer.printf("%s,%d,%d,%d,%d,%d%n",
                         result.dataType,
                         result.size,
                         result.comparisons,
                         result.swaps,
                         result.shifts,
-                        result.arrayAccesses,
-                        result.timeNanos,
-                        result.timeMillis
+                        result.arrayAccesses
                 );
             }
         }
@@ -44,9 +41,8 @@ public class PerformanceTracker {
     public void printSummary() {
         System.out.println("\n=== Performance Summary ===");
         for (BenchmarkResult result : results) {
-            System.out.printf("%s (n=%d): %d comparisons, %d swaps, %.2f ms%n",
-                    result.dataType, result.size, result.comparisons,
-                    result.swaps, result.timeMillis);
+            System.out.printf("%s (n=%d): %d comparisons, %d shifts%n",
+                    result.dataType, result.size, result.comparisons, result.shifts);
         }
     }
 
@@ -57,8 +53,6 @@ public class PerformanceTracker {
         long swaps;
         long shifts;
         long arrayAccesses;
-        long timeNanos;
-        double timeMillis;
 
         BenchmarkResult(String dataType, int size, SortMetrics metrics) {
             this.dataType = dataType;
@@ -67,8 +61,6 @@ public class PerformanceTracker {
             this.swaps = metrics.getSwaps();
             this.shifts = metrics.getShifts();
             this.arrayAccesses = metrics.getArrayAccesses();
-            this.timeNanos = metrics.getExecutionTimeNanos();
-            this.timeMillis = metrics.getExecutionTimeMillis();
         }
     }
 }
