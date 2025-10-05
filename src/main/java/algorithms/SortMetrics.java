@@ -1,4 +1,3 @@
-// src/main/java/algorithms/SortMetrics.java
 package algorithms;
 
 /**

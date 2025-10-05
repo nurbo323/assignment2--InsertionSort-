@@ -1,4 +1,3 @@
-// src/test/java/algorithms/InsertionSortTest.java
 package algorithms;
 
 import org.junit.jupiter.api.BeforeEach;

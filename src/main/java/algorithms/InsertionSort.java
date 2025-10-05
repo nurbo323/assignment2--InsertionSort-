@@ -1,4 +1,3 @@
-// src/main/java/algorithms/InsertionSort.java
 package algorithms;
 
 /**
